@@ -1,53 +1,38 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy JAR app to Azure Web App - SERVER-CONFIG
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+on: [push]
+name: Linux_Container_Workflow
 
 jobs:
-  build:
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up Java version
-      uses: actions/setup-java@v1
-      with:
-        java-version: '8'
-
-    - name: Build with Maven
-      run: mvn clean install
-
-    - name: Upload artifact for deployment job
-      uses: actions/upload-artifact@v2
-      with:
-        name: java-app
-        path: '${{ github.workspace }}/target/*.jar'
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    environment:
-      name: 'production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
-    steps:
-    - name: Download artifact from build job
-      uses: actions/download-artifact@v2
-      with:
-        name: java-app
-
-    - name: Deploy to Azure Web App
-      id: deploy-to-webapp
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: 'SERVER-CONFIG'
-        slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_dab3d946ac7049e7bc82d59329e8d81a }}
-        package: '*.jar'
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        steps:
+        # checkout the repo
+        - name: 'Checkout GitHub Action'
+          uses: actions/checkout@main
+          
+        - name: 'Login via Azure CLI'
+          uses: azure/login@v1
+          with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+        - name: 'Build and push image'
+          uses: azure/docker-login@v1
+          with:
+            login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+            username: ${{ secrets.REGISTRY_USERNAME }}
+            password: ${{ secrets.REGISTRY_PASSWORD }}
+        - run: |
+            docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/service-config-server:${{ github.sha }}
+            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/service-config-server:${{ github.sha }}
+       
+        # - name: 'Deploy to Azure Container Instances'
+        
+        #   uses: 'azure/aci-deploy@v1'
+        #   with:
+        #     resource-group: ${{ secrets.RESOURCE_GROUP }}
+        #     dns-name-label: ${{ secrets.RESOURCE_GROUP }}${{ github.run_number }}
+        #     image: ${{ secrets.REGISTRY_LOGIN_SERVER }}/service-eureka-server:${{ github.sha }}
+        #     registry-login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+        #     registry-username: ${{ secrets.REGISTRY_USERNAME }}
+        #     registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+        #     name: service-eureka-server
+        #     location: 'us south central'
